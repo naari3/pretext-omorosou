@@ -7,7 +7,7 @@ three.js + pretext dynamic layout demo.
 */
 import { layoutNextLine, prepareWithSegments, walkLineRanges, type LayoutCursor, type PreparedTextWithSegments } from '@chenglou/pretext'
 import { BODY_COPY } from './dynamic-layout-text.ts'
-import { createThreeScene, type SpinInfo } from './three-scene.ts'
+import { createThreeScene } from './three-scene.ts'
 import {
   carveTextLineSlots,
   getPolygonIntervalForBand,
@@ -96,8 +96,9 @@ type PageLayout = {
 const stageNode = document.getElementById('stage')
 if (!(stageNode instanceof HTMLDivElement)) throw new Error('#stage not found')
 const stage = stageNode
-const pageNode = document.querySelector('.page')
-if (!(pageNode instanceof HTMLElement)) throw new Error('.page not found')
+const pageNodeRaw = document.querySelector('.page')
+if (!(pageNodeRaw instanceof HTMLElement)) throw new Error('.page not found')
+const pageNode: HTMLElement = pageNodeRaw
 const threeCanvas = document.getElementById('three-canvas') as HTMLCanvasElement
 if (!threeCanvas) throw new Error('#three-canvas not found')
 

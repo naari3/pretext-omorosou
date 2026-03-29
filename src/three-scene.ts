@@ -256,9 +256,9 @@ export function createThreeScene(canvas: HTMLCanvasElement): ThreeScene {
     const w = hullRT.width
     const h = hullRT.height
     const buffer = new Uint8Array(w * h * 4)
-    const pixels = await renderer.readRenderTargetPixelsAsync(hullRT, 0, 0, w, h, buffer)
+    await renderer.readRenderTargetPixelsAsync(hullRT, 0, 0, w, h, buffer)
 
-    return buildHullFromPixels(pixels, w, h, screenWidth, screenHeight)
+    return buildHullFromPixels(buffer, w, h, screenWidth, screenHeight)
   }
 
   function animateVertices(elapsed: number, scale: number, rotation: { x: number; y: number; z: number }, spinInfo: SpinInfo) {
