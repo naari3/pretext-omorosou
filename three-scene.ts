@@ -22,6 +22,10 @@ const VERTEX_WOBBLE_SPEED_X = 0.7
 const VERTEX_WOBBLE_SPEED_Y = 0.9
 const VERTEX_WOBBLE_SPEED_Z = 1.1
 
+// Per-vertex scale offset
+const VERTEX_SCALE_SPEED = 0.35
+const VERTEX_SCALE_OFFSET_AMOUNT = 0.35
+
 // Bloom post-processing
 const BLOOM_STRENGTH = 0.9
 const BLOOM_RADIUS = 0.08
@@ -33,7 +37,7 @@ export type ThreeScene = {
   render(): void
   setModelRotation(name: string, x: number, y: number, z: number): void
   setModelScale(name: string, scale: number): void
-  animateVertices(elapsed: number): void
+  animateVertices(elapsed: number, scale: number, rotation: { x: number; y: number; z: number }, spinInfo: SpinInfo): void
   extractHull(name: string, screenWidth: number, screenHeight: number): Promise<Point[]>
 }
 
@@ -42,6 +46,16 @@ type WonkyCorner = {
   // per-axis random direction and phase for the wobble
   dir: THREE.Vector3
   phase: THREE.Vector3
+  // per-vertex phase offset for scale pulsation
+  scalePhase: number
+  // per-vertex time delay (seconds) for click spin stagger
+  spinDelay: number
+}
+
+export type SpinInfo = {
+  angle: number
+  spin: { from: number; to: number; start: number; duration: number } | null
+  now: number
 }
 
 // 12 triangles (2 per face), indices into the 8 corners
@@ -79,27 +93,73 @@ function makeWonkyBox(size: number, jitter: number): { geometry: THREE.BufferGeo
       Math.random() * Math.PI * 2,
       Math.random() * Math.PI * 2,
     ),
+    scalePhase: Math.random() * Math.PI * 2,
+    spinDelay: (Math.random() - 0.5) * 0.3,
   }))
 
   const geometry = new THREE.BufferGeometry()
   // 12 faces × 3 verts × 3 floats
   const posArray = new Float32Array(FACE_INDICES.length * 9)
   geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3))
-  writeWonkyPositions(geometry, corners, 0)
+  writeWonkyPositions(geometry, corners, 0, 1, { x: 0, y: 0, z: 0 }, { angle: 0, spin: null, now: 0 })
   geometry.computeVertexNormals()
   return { geometry, corners }
 }
 
-function writeWonkyPositions(geometry: THREE.BufferGeometry, corners: WonkyCorner[], elapsed: number): void {
+function easeSpin(t: number): number {
+  const o = 1 - t
+  return 1 - o * o * o
+}
+
+function getVertexSpinAngle(spinInfo: SpinInfo, delay: number): number {
+  if (spinInfo.spin === null) return spinInfo.angle
+  const vertexNow = spinInfo.now - delay * 1000  // delay is in seconds, now is in ms
+  const progress = Math.max(0, Math.min(1, (vertexNow - spinInfo.spin.start) / spinInfo.spin.duration))
+  return spinInfo.spin.from + (spinInfo.spin.to - spinInfo.spin.from) * easeSpin(progress)
+}
+
+function writeWonkyPositions(
+  geometry: THREE.BufferGeometry,
+  corners: WonkyCorner[],
+  elapsed: number,
+  scale: number,
+  rotation: { x: number; y: number; z: number },
+  spinInfo: SpinInfo,
+): void {
   const pos = geometry.getAttribute('position') as THREE.BufferAttribute
   const arr = pos.array as Float32Array
   let offset = 0
   for (const face of FACE_INDICES) {
     for (const ci of face) {
       const c = corners[ci!]!
-      arr[offset++] = c.base.x + c.dir.x * Math.sin(elapsed * VERTEX_WOBBLE_SPEED_X + c.phase.x)
-      arr[offset++] = c.base.y + c.dir.y * Math.sin(elapsed * VERTEX_WOBBLE_SPEED_Y + c.phase.y)
-      arr[offset++] = c.base.z + c.dir.z * Math.sin(elapsed * VERTEX_WOBBLE_SPEED_Z + c.phase.z)
+      // Per-vertex scale with phase offset for staggered pulsation
+      const vertScale = scale + VERTEX_SCALE_OFFSET_AMOUNT * Math.sin(elapsed * VERTEX_SCALE_SPEED + c.scalePhase)
+      let x = c.base.x + c.dir.x * Math.sin(elapsed * VERTEX_WOBBLE_SPEED_X + c.phase.x)
+      let y = c.base.y + c.dir.y * Math.sin(elapsed * VERTEX_WOBBLE_SPEED_Y + c.phase.y)
+      let z = c.base.z + c.dir.z * Math.sin(elapsed * VERTEX_WOBBLE_SPEED_Z + c.phase.z)
+      x *= vertScale
+      y *= vertScale
+      z *= vertScale
+
+      // Per-vertex spin angle (staggered start/end via spinDelay)
+      const spinAngle = getVertexSpinAngle(spinInfo, c.spinDelay)
+
+      // Apply rotation: base continuous rotation + per-vertex spin
+      const ry = rotation.y + spinAngle
+      const cosY = Math.cos(ry), sinY = Math.sin(ry)
+      const x1 = x * cosY + z * sinY
+      const z1 = -x * sinY + z * cosY
+
+      const rx = rotation.x
+      const cosX = Math.cos(rx), sinX = Math.sin(rx)
+      const y2 = y * cosX - z1 * sinX
+      const z2 = y * sinX + z1 * cosX
+
+      const rz = rotation.z
+      const cosZ = Math.cos(rz), sinZ = Math.sin(rz)
+      arr[offset++] = x1 * cosZ - y2 * sinZ
+      arr[offset++] = x1 * sinZ + y2 * cosZ
+      arr[offset++] = z2
     }
   }
   pos.needsUpdate = true
@@ -201,8 +261,8 @@ export function createThreeScene(canvas: HTMLCanvasElement): ThreeScene {
     return buildHullFromPixels(pixels, w, h, screenWidth, screenHeight)
   }
 
-  function animateVertices(elapsed: number) {
-    writeWonkyPositions(wonky.geometry, wonky.corners, elapsed)
+  function animateVertices(elapsed: number, scale: number, rotation: { x: number; y: number; z: number }, spinInfo: SpinInfo) {
+    writeWonkyPositions(wonky.geometry, wonky.corners, elapsed, scale, rotation, spinInfo)
   }
 
   return { resize, render, setModelRotation, setModelScale, animateVertices, extractHull }

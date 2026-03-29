@@ -7,7 +7,7 @@ three.js + pretext dynamic layout demo.
 */
 import { layoutNextLine, prepareWithSegments, walkLineRanges, type LayoutCursor, type PreparedTextWithSegments } from '@chenglou/pretext'
 import { BODY_COPY } from './dynamic-layout-text.ts'
-import { createThreeScene } from './three-scene.ts'
+import { createThreeScene, type SpinInfo } from './three-scene.ts'
 import {
   carveTextLineSlots,
   getPolygonIntervalForBand,
@@ -433,7 +433,12 @@ function commitFrame(now: number): void {
 
   // Update three.js model rotation and scale (slow continuous + click spin)
   const elapsed = (now - startTime) / 1000
-  threeScene.setModelRotation('center', elapsed * ROTATION_SPEED_X, modelAnimation.angle + elapsed * ROTATION_SPEED_Y, elapsed * ROTATION_SPEED_Z)
+  const rotation = {
+    x: elapsed * ROTATION_SPEED_X,
+    y: elapsed * ROTATION_SPEED_Y,
+    z: elapsed * ROTATION_SPEED_Z,
+  }
+  const spinInfo = { angle: modelAnimation.angle, spin: modelAnimation.spin, now }
   const base = Math.tanh(SCALE_SATURATION * Math.sin(elapsed * SCALE_SPEED))
   // Tremor that kicks in only when the model is large, like straining muscles
   const tension = Math.max(0, base)
@@ -441,8 +446,7 @@ function commitFrame(now: number): void {
     Math.sin(elapsed * TREMOR_FREQ_1) + TREMOR_WEIGHT_2 * Math.sin(elapsed * TREMOR_FREQ_2) + TREMOR_WEIGHT_3 * Math.sin(elapsed * TREMOR_FREQ_3)
   ) / TREMOR_NORMALIZE
   const scale = SCALE_BASE + SCALE_AMPLITUDE * base + tremor
-  threeScene.setModelScale('center', scale)
-  threeScene.animateVertices(elapsed)
+  threeScene.animateVertices(elapsed, scale, rotation, spinInfo)
 
   threeScene.resize(pageWidth, pageHeight)
   threeScene.render()
