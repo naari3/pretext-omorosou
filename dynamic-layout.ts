@@ -18,8 +18,8 @@ import {
   type Rect,
 } from './wrap-geometry.ts'
 
-const BODY_FONT = '20px "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif'
-const BODY_LINE_HEIGHT = 32
+const BODY_FONT = '13px "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif'
+const BODY_LINE_HEIGHT = 21
 const CREDIT_TEXT = 'Leopold Aschenbrenner'
 const CREDIT_FONT = '12px "Helvetica Neue", Helvetica, Arial, sans-serif'
 const CREDIT_LINE_HEIGHT = 16
@@ -28,6 +28,29 @@ const HEADLINE_FONT_FAMILY = '"Iowan Old Style", "Palatino Linotype", "Book Anti
 const HINT_PILL_SAFE_TOP = 72
 const NARROW_BREAKPOINT = 760
 const NARROW_COLUMN_MAX_WIDTH = 430
+
+// Model rotation speeds (rad/s per axis)
+const ROTATION_SPEED_X = 0.15
+const ROTATION_SPEED_Y = 0.2
+const ROTATION_SPEED_Z = 0.1
+
+// Scale pulsation
+const SCALE_BASE = 1
+const SCALE_AMPLITUDE = 0.6
+const SCALE_SATURATION = 2.5
+const SCALE_SPEED = 0.35
+
+// Tremor (tensing shake at peak scale)
+const TREMOR_AMPLITUDE = 0.02
+const TREMOR_FREQ_1 = 81
+const TREMOR_FREQ_2 = 129
+const TREMOR_FREQ_3 = 201
+const TREMOR_WEIGHT_2 = 0.7
+const TREMOR_WEIGHT_3 = 0.5
+const TREMOR_NORMALIZE = 2.2
+
+// Click spin
+const SPIN_DURATION = 900
 
 type ModelKind = 'center'
 
@@ -273,7 +296,7 @@ function updateSpinState(now: number): boolean {
 }
 
 function startModelSpin(now: number): void {
-  modelAnimation.spin = { from: modelAnimation.angle, to: modelAnimation.angle + Math.PI, start: now, duration: 900 }
+  modelAnimation.spin = { from: modelAnimation.angle, to: modelAnimation.angle + Math.PI, start: now, duration: SPIN_DURATION }
 }
 
 // ── Page layout ─────────────────────────────────────────────────────────────────
@@ -410,8 +433,14 @@ function commitFrame(now: number): void {
 
   // Update three.js model rotation and scale (slow continuous + click spin)
   const elapsed = (now - startTime) / 1000
-  threeScene.setModelRotation('center', elapsed * 0.15, modelAnimation.angle + elapsed * 0.2, elapsed * 0.1)
-  const scale = 1 + 0.6 * Math.tanh(2.5 * Math.sin(elapsed * 0.35))
+  threeScene.setModelRotation('center', elapsed * ROTATION_SPEED_X, modelAnimation.angle + elapsed * ROTATION_SPEED_Y, elapsed * ROTATION_SPEED_Z)
+  const base = Math.tanh(SCALE_SATURATION * Math.sin(elapsed * SCALE_SPEED))
+  // Tremor that kicks in only when the model is large, like straining muscles
+  const tension = Math.max(0, base)
+  const tremor = tension * tension * TREMOR_AMPLITUDE * (
+    Math.sin(elapsed * TREMOR_FREQ_1) + TREMOR_WEIGHT_2 * Math.sin(elapsed * TREMOR_FREQ_2) + TREMOR_WEIGHT_3 * Math.sin(elapsed * TREMOR_FREQ_3)
+  ) / TREMOR_NORMALIZE
+  const scale = SCALE_BASE + SCALE_AMPLITUDE * base + tremor
   threeScene.setModelScale('center', scale)
   threeScene.animateVertices(elapsed)
 

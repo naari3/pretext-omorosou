@@ -5,10 +5,28 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import type { Point } from './wrap-geometry.ts'
 
-const HULL_MAX_DIM = 512
-const ALPHA_THRESHOLD = 12
-const SMOOTH_RADIUS = 6
-const SAMPLE_COUNT = 120
+// Hull extraction
+const HULL_MAX_DIM = 640
+const HULL_ALPHA_THRESHOLD = 12
+const HULL_SMOOTH_RADIUS = 6
+const HULL_SAMPLE_COUNT = 120
+
+// Camera
+const CAMERA_FOV = 50
+const CAMERA_Z = 5
+
+// Wonky box geometry
+const BOX_SIZE = 1.2
+const BOX_JITTER = 0.35
+const VERTEX_WOBBLE_SPEED_X = 0.7
+const VERTEX_WOBBLE_SPEED_Y = 0.9
+const VERTEX_WOBBLE_SPEED_Z = 1.1
+
+// Bloom post-processing
+const BLOOM_STRENGTH = 1.2
+const BLOOM_RADIUS = 0.08
+const BLOOM_THRESHOLD = 0.0
+const BLOOM_RESOLUTION_SCALE = 3
 
 export type ThreeScene = {
   resize(width: number, height: number): void
@@ -79,9 +97,9 @@ function writeWonkyPositions(geometry: THREE.BufferGeometry, corners: WonkyCorne
   for (const face of FACE_INDICES) {
     for (const ci of face) {
       const c = corners[ci!]!
-      arr[offset++] = c.base.x + c.dir.x * Math.sin(elapsed * 0.7 + c.phase.x)
-      arr[offset++] = c.base.y + c.dir.y * Math.sin(elapsed * 0.9 + c.phase.y)
-      arr[offset++] = c.base.z + c.dir.z * Math.sin(elapsed * 1.1 + c.phase.z)
+      arr[offset++] = c.base.x + c.dir.x * Math.sin(elapsed * VERTEX_WOBBLE_SPEED_X + c.phase.x)
+      arr[offset++] = c.base.y + c.dir.y * Math.sin(elapsed * VERTEX_WOBBLE_SPEED_Y + c.phase.y)
+      arr[offset++] = c.base.z + c.dir.z * Math.sin(elapsed * VERTEX_WOBBLE_SPEED_Z + c.phase.z)
     }
   }
   pos.needsUpdate = true
@@ -94,8 +112,8 @@ export function createThreeScene(canvas: HTMLCanvasElement): ThreeScene {
   renderer.setPixelRatio(window.devicePixelRatio)
 
   const scene = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100)
-  camera.position.z = 5
+  const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 100)
+  camera.position.z = CAMERA_Z
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.6))
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.9)
@@ -107,7 +125,7 @@ export function createThreeScene(canvas: HTMLCanvasElement): ThreeScene {
 
   const models = new Map<string, THREE.Mesh>()
 
-  const wonky = makeWonkyBox(1.2, 0.35)
+  const wonky = makeWonkyBox(BOX_SIZE, BOX_JITTER)
   const blob = new THREE.Mesh(
     wonky.geometry,
     new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true }),
@@ -116,13 +134,14 @@ export function createThreeScene(canvas: HTMLCanvasElement): ThreeScene {
   scene.add(blob)
   models.set('center', blob)
 
-  // Bloom post-processing
-  const composer = new EffectComposer(renderer)
+  // Bloom post-processing (MSAA render target for antialiasing)
+  const msaaRT = new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType })
+  const composer = new EffectComposer(renderer, msaaRT)
   composer.addPass(new RenderPass(scene, camera))
-  const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.8, 0.15, 0.0)
-  // Run bloom at 2x resolution so the mip chain stays sharp when the model is small
+  const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD)
+  // Run bloom at higher resolution so the mip chain stays sharp when the model is small
   const bloomSetSize = bloomPass.setSize.bind(bloomPass)
-  bloomPass.setSize = (w: number, h: number) => bloomSetSize(w * 2, h * 2)
+  bloomPass.setSize = (w: number, h: number) => bloomSetSize(w * BLOOM_RESOLUTION_SCALE, h * BLOOM_RESOLUTION_SCALE)
   composer.addPass(bloomPass)
   composer.addPass(new OutputPass())
 
@@ -209,7 +228,7 @@ function buildHullFromPixels(
     let right = -1
     for (let x = 0; x < width; x++) {
       const alpha = pixels[(rtY * width + x) * 4 + 3]!
-      if (alpha < ALPHA_THRESHOLD) continue
+      if (alpha < HULL_ALPHA_THRESHOLD) continue
       if (left === -1) left = x
       right = x
     }
@@ -233,7 +252,7 @@ function buildHullFromPixels(
   for (const y of validRows) {
     let leftEdge = Infinity
     let rightEdge = -Infinity
-    for (let offset = -SMOOTH_RADIUS; offset <= SMOOTH_RADIUS; offset++) {
+    for (let offset = -HULL_SMOOTH_RADIUS; offset <= HULL_SMOOTH_RADIUS; offset++) {
       const sy = y + offset
       if (sy < 0 || sy >= height) continue
       if (lefts[sy] == null || rights[sy] == null) continue
@@ -248,7 +267,7 @@ function buildHullFromPixels(
   const scaleX = screenWidth / width
   const scaleY = screenHeight / height
 
-  const step = Math.max(1, Math.floor(validRows.length / SAMPLE_COUNT))
+  const step = Math.max(1, Math.floor(validRows.length / HULL_SAMPLE_COUNT))
   const sampledRows: number[] = []
   for (let i = 0; i < validRows.length; i += step) sampledRows.push(validRows[i]!)
   const lastRow = validRows[validRows.length - 1]!

@@ -63,30 +63,7 @@
         background: none;
       }
 
-      .hint-pill {
-        position: fixed;
-        top: 16px;
-        left: 50%;
-        transform: translateX(-50%);
-        margin: 0;
-        padding: 10px 16px 11px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.9);
-        color: rgba(0, 0, 0, 0.9);
-        font: 500 12px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif;
-        letter-spacing: 0.015em;
-        white-space: nowrap;
-        user-select: none;
-        pointer-events: none;
-        z-index: 5;
-        box-shadow: 0 14px 32px rgba(255, 255, 255, 0.1);
-      }
-
-      .page--mobile .hint-pill {
-        display: none;
-      }
-
-      .stage {
+.stage {
         position: relative;
         height: 100%;
       }
@@ -162,7 +139,6 @@
       <canvas id="three-canvas"></canvas>
       <div class="atmosphere atmosphere--left"></div>
       <div class="atmosphere atmosphere--right"></div>
-      <p class="hint-pill">Text laid out with pretext, 3D models with three.js. Resize the window, then click the models.</p>
       <div id="stage" class="stage"></div>
     </main>
 
