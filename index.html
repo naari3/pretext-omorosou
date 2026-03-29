@@ -6,11 +6,11 @@
     <title>Dynamic Layout</title>
     <style>
       :root {
-        color-scheme: light;
-        --paper: #f6f0e6;
-        --ink: #11100d;
-        --muted: #4f463b;
-        --accent: #d97757;
+        color-scheme: dark;
+        --paper: #000000;
+        --ink: #ffffff;
+        --muted: #999999;
+        --accent: #aaaaaa;
       }
 
       * {
@@ -56,15 +56,11 @@
       }
 
       .atmosphere--left {
-        background:
-          radial-gradient(62% 54% at 16% 82%, rgba(45, 88, 128, 0.16), transparent 69%),
-          radial-gradient(44% 34% at 28% 64%, rgba(57, 78, 124, 0.07), transparent 76%);
+        background: none;
       }
 
       .atmosphere--right {
-        background:
-          radial-gradient(58% 48% at 86% 16%, rgba(217, 119, 87, 0.18), transparent 70%),
-          linear-gradient(135deg, rgba(217, 119, 87, 0.055) 0%, rgba(217, 119, 87, 0.02) 24%, transparent 42%, rgba(45, 88, 128, 0.045) 100%);
+        background: none;
       }
 
       .hint-pill {
@@ -75,15 +71,15 @@
         margin: 0;
         padding: 10px 16px 11px;
         border-radius: 999px;
-        background: rgba(17, 16, 13, 0.94);
-        color: rgba(246, 240, 230, 0.96);
+        background: rgba(255, 255, 255, 0.9);
+        color: rgba(0, 0, 0, 0.9);
         font: 500 12px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif;
         letter-spacing: 0.015em;
         white-space: nowrap;
         user-select: none;
         pointer-events: none;
         z-index: 5;
-        box-shadow: 0 14px 32px rgba(17, 16, 13, 0.16);
+        box-shadow: 0 14px 32px rgba(255, 255, 255, 0.1);
       }
 
       .page--mobile .hint-pill {
@@ -122,27 +118,19 @@
         letter-spacing: 0.14em;
         text-transform: uppercase;
         white-space: nowrap;
-        color: rgba(17, 16, 13, 0.58);
+        color: rgba(255, 255, 255, 0.58);
         user-select: text;
         cursor: text;
         z-index: 1;
       }
 
-      .logo {
+      #three-canvas {
         position: absolute;
-        display: block;
-        user-select: none;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
         pointer-events: none;
-        transform-origin: center center;
-        z-index: 3;
-      }
-
-      .logo--openai {
-        filter: drop-shadow(0 26px 34px rgba(16, 16, 12, 0.14));
-      }
-
-      .logo--claude {
-        filter: drop-shadow(0 24px 32px rgba(140, 86, 52, 0.18));
       }
 
       .line {
@@ -171,9 +159,10 @@
   </head>
   <body>
     <main class="page">
+      <canvas id="three-canvas"></canvas>
       <div class="atmosphere atmosphere--left"></div>
       <div class="atmosphere atmosphere--right"></div>
-      <p class="hint-pill">Everything laid out in JS. Resize horizontally and vertically, then click the logos.</p>
+      <p class="hint-pill">Text laid out with pretext, 3D models with three.js. Resize the window, then click the models.</p>
       <div id="stage" class="stage"></div>
     </main>
 
