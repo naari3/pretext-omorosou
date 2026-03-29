@@ -447,14 +447,16 @@ function commitFrame(now: number): void {
   threeScene.resize(pageWidth, pageHeight)
   threeScene.render()
 
-  // Extract silhouette hull from render target
-  const hull = threeScene.extractHull('center', pageWidth, pageHeight)
-  currentHull = hull
+  // Async hull extraction (PBO-based, no GPU pipeline stall)
+  // Result arrives via microtask before next frame; layout uses previous hull (1-frame latency)
+  threeScene.extractHull('center', pageWidth, pageHeight).then(hull => {
+    currentHull = hull
+  })
 
   // Text layout
   const layout = buildLayout(pageWidth, pageHeight, lineHeight)
   const { headlineLines, creditLeft, creditTop, leftLines, rightLines, contentHeight } =
-    evaluateLayout(layout, lineHeight, preparedBody, hull)
+    evaluateLayout(layout, lineHeight, preparedBody, currentHull)
 
   // Project to DOM
   pageNode.classList.toggle('page--mobile', layout.isNarrow)

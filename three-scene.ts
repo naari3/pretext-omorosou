@@ -6,7 +6,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import type { Point } from './wrap-geometry.ts'
 
 // Hull extraction
-const HULL_MAX_DIM = 640
+const HULL_MAX_DIM = 1024
 const HULL_ALPHA_THRESHOLD = 12
 const HULL_SMOOTH_RADIUS = 6
 const HULL_SAMPLE_COUNT = 120
@@ -23,7 +23,7 @@ const VERTEX_WOBBLE_SPEED_Y = 0.9
 const VERTEX_WOBBLE_SPEED_Z = 1.1
 
 // Bloom post-processing
-const BLOOM_STRENGTH = 1.2
+const BLOOM_STRENGTH = 0.9
 const BLOOM_RADIUS = 0.08
 const BLOOM_THRESHOLD = 0.0
 const BLOOM_RESOLUTION_SCALE = 3
@@ -34,7 +34,7 @@ export type ThreeScene = {
   setModelRotation(name: string, x: number, y: number, z: number): void
   setModelScale(name: string, scale: number): void
   animateVertices(elapsed: number): void
-  extractHull(name: string, screenWidth: number, screenHeight: number): Point[]
+  extractHull(name: string, screenWidth: number, screenHeight: number): Promise<Point[]>
 }
 
 type WonkyCorner = {
@@ -177,7 +177,7 @@ export function createThreeScene(canvas: HTMLCanvasElement): ThreeScene {
     if (mesh) mesh.scale.setScalar(scale)
   }
 
-  function extractHull(name: string, screenWidth: number, screenHeight: number): Point[] {
+  async function extractHull(name: string, screenWidth: number, screenHeight: number): Promise<Point[]> {
     const mesh = models.get(name)
     if (!mesh) return []
 
@@ -195,8 +195,8 @@ export function createThreeScene(canvas: HTMLCanvasElement): ThreeScene {
 
     const w = hullRT.width
     const h = hullRT.height
-    const pixels = new Uint8Array(w * h * 4)
-    renderer.readRenderTargetPixels(hullRT, 0, 0, w, h, pixels)
+    const buffer = new Uint8Array(w * h * 4)
+    const pixels = await renderer.readRenderTargetPixelsAsync(hullRT, 0, 0, w, h, buffer)
 
     return buildHullFromPixels(pixels, w, h, screenWidth, screenHeight)
   }
